@@ -1,4 +1,4 @@
-export type ViewMode = 'daily' | 'weekly' | 'monthly' | 'tradelog';
+export type ViewMode = 'dashboard' | 'reports' | 'tradelog' | 'notebook' | 'playbook' | 'dailyjournal';
 
 export interface Trade {
   id: string;

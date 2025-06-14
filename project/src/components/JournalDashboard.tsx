@@ -9,10 +9,44 @@ import { TradeDetailModal } from './TradeDetailModal';
 import { EquityCurve } from './EquityCurve';
 import { DateNavigation } from './DateNavigation';
 import { PnLCalendar } from './PnLCalendar';
-import { BarChart3, Calendar, TrendingUp, Shield, Plus, Settings, LogOut, BookOpen, Sun, Moon, Quote, TrendingDown, DollarSign, ChevronRight, Edit2, Eye } from 'lucide-react';
+import { 
+  Wallet, 
+  LineChart, 
+  Target, 
+  AlertTriangle, 
+  ArrowUpRight, 
+  ArrowDownRight, 
+  DollarSign, 
+  Zap, 
+  Clock, 
+  BarChart, 
+  PieChart, 
+  Activity, 
+  TrendingDown, 
+  Percent, 
+  ArrowRightLeft, 
+  Sun, 
+  Moon, 
+  LogOut, 
+  Eye, 
+  Plus, 
+  Shield, 
+  ArrowLeft, 
+  ArrowRight, 
+  Edit, 
+  Trash,
+  FileText,
+  TrendingUp
+} from 'lucide-react';
 import { ViewMode, Trade } from '../types/trade';
-import { format, isSameDay, startOfMonth, endOfMonth } from 'date-fns';
-import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Line, Area } from 'recharts';
+import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
+import { ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip, Line, Area, Bar, AreaChart as RechartsAreaChart, BarChart as RechartsBarChart } from 'recharts';
+
+interface ChartDataPoint {
+  date: string;
+  value: number;
+  cumulativeValue: number;
+}
 
 export function JournalDashboard() {
   const { isDark, toggleTheme } = useTheme();
@@ -34,22 +68,51 @@ export function JournalDashboard() {
   const [accountBalance, setAccountBalance] = useState<number>(10000);
   const [isEditingBalance, setIsEditingBalance] = useState(false);
   const [isAddingTrade, setIsAddingTrade] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   // Calculate trading day metrics
-  const tradingDayMetrics = {
-    winningDays: trades.filter(t => t.pnl !== undefined && t.pnl > 0).length,
-    losingDays: trades.filter(t => t.pnl !== undefined && t.pnl < 0).length,
-    totalTradingDays: trades.length,
-    winRate: trades.length > 0 ? (trades.filter(t => t.pnl !== undefined && t.pnl > 0).length / trades.length * 100).toFixed(1) : '0.0'
-  };
+  const tradingDayMetrics = useMemo(() => {
+    const winningDays = trades.filter(t => t.pnl !== undefined && t.pnl > 0).length;
+    const losingDays = trades.filter(t => t.pnl !== undefined && t.pnl < 0).length;
+    const totalTradingDays = trades.length;
+    const winRate = trades.length > 0 ? (winningDays / totalTradingDays * 100).toFixed(1) : '0.0';
 
-  // Add account balance editing functionality
-  const handleBalanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    if (!isNaN(value) && value >= 0) {
-      setAccountBalance(value);
-    }
-  };
+    return {
+      winningDays,
+      losingDays,
+      totalTradingDays,
+      winRate
+    };
+  }, [trades]);
+
+  // Calculate additional metrics
+  const metrics = useMemo(() => {
+    const totalPnL = trades.reduce((sum, trade) => sum + (trade.pnl || 0), 0);
+    const winningTrades = trades.filter(trade => trade.pnl && trade.pnl > 0);
+    const losingTrades = trades.filter(trade => trade.pnl && trade.pnl < 0);
+    
+    const avgWin = winningTrades.length > 0 
+      ? winningTrades.reduce((sum, trade) => sum + (trade.pnl || 0), 0) / winningTrades.length 
+      : 0;
+    
+    const avgLoss = losingTrades.length > 0 
+      ? losingTrades.reduce((sum, trade) => sum + (trade.pnl || 0), 0) / losingTrades.length 
+      : 0;
+
+    const profitFactor = Math.abs(avgLoss) > 0 ? Math.abs(avgWin / avgLoss) : 0;
+    const expectancy = trades.length > 0 ? (winningTrades.length * avgWin + losingTrades.length * avgLoss) / trades.length : 0;
+
+    return {
+      totalPnL,
+      avgWin,
+      avgLoss,
+      profitFactor,
+      expectancy,
+      totalTrades: trades.length,
+      winningTrades: winningTrades.length,
+      losingTrades: losingTrades.length
+    };
+  }, [trades]);
 
   // Calculate equity curve data with account balance
   const equityData = useMemo(() => {
@@ -82,10 +145,24 @@ export function JournalDashboard() {
     logout();
   };
 
-  const handleAddTrade = (tradeData: any) => {
-    addTrade(tradeData);
+  const handleAddTrade = async (tradeData: Omit<Trade, 'id' | 'createdAt' | 'updatedAt'>) => {
+    await addTrade(tradeData);
     setShowTradeForm(false);
     setIsAddingTrade(false);
+    
+    // Set the selected date to the new trade's date
+    setSelectedDate(new Date(tradeData.date));
+    
+    // Force a re-render of the calendar and metrics
+    setCurrentMonth(new Date(tradeData.date));
+  };
+
+  const handleUpdateTrade = async (tradeData: Omit<Trade, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (selectedTrade) {
+      await updateTrade(selectedTrade, tradeData);
+      setSelectedTrade(null);
+      setShowTradeForm(false);
+    }
   };
 
   const handleEditTrade = (trade: Trade) => {
@@ -93,56 +170,9 @@ export function JournalDashboard() {
     setShowTradeForm(true);
   };
 
-  const handleUpdateTrade = (tradeData: Omit<Trade, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (selectedTrade) {
-      updateTrade(selectedTrade, tradeData);
-      setSelectedTrade(null);
-      setShowTradeForm(false);
-    }
-  };
-
   const handleViewTrade = (trade: Trade) => {
     setShowTradeDetail(trade.id);
   };
-
-  const navItems = [
-    { id: 'daily' as ViewMode, label: 'Daily', icon: Calendar },
-    { id: 'weekly' as ViewMode, label: 'Weekly', icon: BarChart3 },
-    { id: 'monthly' as ViewMode, label: 'Monthly', icon: TrendingUp },
-    { id: 'tradelog' as ViewMode, label: 'Trade Log', icon: BookOpen },
-  ];
-
-  // Add account balance display and edit functionality
-  const renderAccountBalance = () => (
-    <div className="flex items-center space-x-2">
-      <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-        Account Balance:
-      </span>
-      {isEditingBalance ? (
-        <input
-          type="number"
-          value={accountBalance}
-          onChange={handleBalanceChange}
-          onBlur={() => setIsEditingBalance(false)}
-          className={`w-32 px-2 py-1 rounded border ${
-            isDark 
-              ? 'bg-black border-gray-700 text-white' 
-              : 'bg-white border-gray-300 text-gray-900'
-          }`}
-          autoFocus
-        />
-      ) : (
-        <button
-          onClick={() => setIsEditingBalance(true)}
-          className={`text-sm font-medium ${
-            isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'
-          }`}
-        >
-          ${accountBalance.toLocaleString()}
-        </button>
-      )}
-    </div>
-  );
 
   const dailyTrades = useMemo(() => {
     return trades.filter(trade => isSameDay(new Date(trade.date), selectedDate));
@@ -152,11 +182,10 @@ export function JournalDashboard() {
     return trades.reduce((sum, trade) => sum + (trade.pnl || 0), 0);
   }, [trades]);
 
-  const profitFactor = useMemo(() => {
-    const totalWinningPnL = trades.reduce((sum, trade) => (trade.pnl && trade.pnl > 0 ? sum + trade.pnl : sum), 0);
-    const totalLosingPnL = trades.reduce((sum, trade) => (trade.pnl && trade.pnl < 0 ? sum + Math.abs(trade.pnl) : sum), 0);
-    return totalLosingPnL > 0 ? (totalWinningPnL / totalLosingPnL) : (totalWinningPnL > 0 ? Infinity : 0);
-  }, [trades]);
+  const profitFactor = trades.length > 0 ? Math.abs(
+    trades.filter(trade => trade.pnl > 0).reduce((sum, trade) => sum + (trade.pnl || 0), 0) /
+    trades.filter(trade => trade.pnl < 0).reduce((sum, trade) => sum + (trade.pnl || 0), 0)
+  ) : 0;
 
   const avgWinningTrade = useMemo(() => {
     const winningTrades = trades.filter(trade => trade.pnl && trade.pnl > 0);
@@ -258,77 +287,436 @@ export function JournalDashboard() {
     return showTradeDetail ? trades.find(t => t.id === showTradeDetail) : undefined;
   }, [showTradeDetail, trades]);
 
+  // Generate sample data for the last 30 days
+  const generateChartData = (): ChartDataPoint[] => {
+    const data: ChartDataPoint[] = [];
+    let cumulativeValue = 0;
+    
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      
+      // Generate random P&L between -1000 and 2000
+      const dailyPnL = Math.floor(Math.random() * 3000) - 1000;
+      cumulativeValue += dailyPnL;
+      
+      data.push({
+        date: format(date, 'MMM d'),
+        value: dailyPnL,
+        cumulativeValue: cumulativeValue
+      });
+    }
+    
+    return data;
+  };
+
+  const chartData = generateChartData();
+  const cumulativePnLData = chartData.map(item => ({
+    date: item.date,
+    value: item.cumulativeValue
+  }));
+  
+  const dailyPnLData = chartData.slice(-7); // Last 7 days
+
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-black' : 'bg-white'}`}>
-      {/* Navigation Bar */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 ${
-          isDark ? 'bg-black/80 backdrop-blur-md' : 'bg-white/80 backdrop-blur-md'
-      } border-b ${isDark ? 'border-gray-800' : 'border-gray-200'}`}>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white">
+      {/* Main Content */}
+      <main className="pt-20 pb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <div className="flex-shrink-0">
-              <span className={`text-xl font-bold ${
-                isDark ? 'text-white' : 'text-gray-900'
-              }`}>
-                NBS Journal
+          {/* Performance Metrics Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            {/* Net P&L Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-white/10 hover:border-blue-500/30 transition-all duration-300"
+            >
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="p-1.5 rounded-lg bg-blue-500/20">
+                  <Wallet className="w-4 h-4 text-blue-400" />
+                </div>
+                <h3 className="text-sm font-semibold text-white">Net P&L</h3>
+              </div>
+              <div className="flex items-baseline space-x-2">
+                <span className={`text-2xl font-bold ${metrics.totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  ${metrics.totalPnL.toLocaleString()}
               </span>
             </div>
+            </motion.div>
 
-            {/* Navigation Items */}
-            <div className="hidden md:flex items-center space-x-8">
-              {navItems.map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => setViewMode(item.id)}
-                  className={`flex items-center space-x-2 text-sm font-medium ${
-                    viewMode === item.id
-                      ? isDark ? 'text-blue-400' : 'text-blue-600'
-                      : isDark ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span>{item.label}</span>
-                </button>
-              ))}
+            {/* Trade Expectancy Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-white/10 hover:border-purple-500/30 transition-all duration-300"
+            >
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="p-1.5 rounded-lg bg-purple-500/20">
+                  <LineChart className="w-4 h-4 text-purple-400" />
+                </div>
+                <h3 className="text-sm font-semibold text-white">Trade Expectancy</h3>
+              </div>
+              <div className="flex items-baseline space-x-2">
+                <span className={`text-2xl font-bold ${metrics.expectancy >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  ${metrics.expectancy.toFixed(2)}
+                </span>
+                <span className="text-xs text-white/60">per trade</span>
+              </div>
+            </motion.div>
+
+            {/* Profit Factor Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-white/10 hover:border-green-500/30 transition-all duration-300"
+            >
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="p-1.5 rounded-lg bg-green-500/20">
+                  <PieChart className="w-4 h-4 text-green-400" />
+                </div>
+                <h3 className="text-sm font-semibold text-white">Profit Factor</h3>
+              </div>
+              <div className="flex items-baseline space-x-2">
+                <span className="text-2xl font-bold text-green-400">{metrics.profitFactor.toFixed(2)}</span>
+                <span className="text-xs text-white/60">ratio</span>
+              </div>
+            </motion.div>
+
+            {/* Win Rate Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-white/10 hover:border-yellow-500/30 transition-all duration-300"
+            >
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="p-1.5 rounded-lg bg-yellow-500/20">
+                  <Percent className="w-4 h-4 text-yellow-400" />
+                </div>
+                <h3 className="text-sm font-semibold text-white">Win Rate</h3>
+              </div>
+              <div className="flex items-baseline space-x-2">
+                <span className="text-2xl font-bold text-yellow-400">{tradingDayMetrics.winRate}%</span>
+                <span className="text-xs text-white/60">of trades</span>
+              </div>
+            </motion.div>
+
+            {/* Avg Win/Loss Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="p-4 rounded-xl bg-[#000000] border border-[#1a1a1a] hover:border-red-500/30 transition-all duration-300"
+            >
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="p-1.5 rounded-lg bg-red-500/20">
+                  <ArrowRightLeft className="w-4 h-4 text-red-400" />
+                </div>
+                <h3 className="text-sm font-semibold text-white">Avg Win/Loss</h3>
+              </div>
+              <div className="space-y-2">
+                <div>
+                  <div className="flex justify-between text-xs mb-0.5">
+                    <span className="text-white/60">Win</span>
+                    <span className="text-green-400 font-medium">${metrics.avgWin.toFixed(2)}</span>
+                  </div>
+                  <div className="h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, (metrics.avgWin / Math.max(metrics.avgWin, Math.abs(metrics.avgLoss))) * 100)}%` }}
+                      className="h-full bg-green-500/50"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs mb-0.5">
+                    <span className="text-white/60">Loss</span>
+                    <span className="text-red-400 font-medium">${Math.abs(metrics.avgLoss).toFixed(2)}</span>
+                  </div>
+                  <div className="h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, (Math.abs(metrics.avgLoss) / Math.max(metrics.avgWin, Math.abs(metrics.avgLoss))) * 100)}%` }}
+                      className="h-full bg-red-500/50"
+                    />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Analytics Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+            {/* NBS Score Widget - Tradezella Style */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="p-4 rounded-xl bg-[#000000] border border-[#1a1a1a] hover:border-blue-500/30 transition-all duration-300"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-white">NBS Score</h2>
+                <span className="text-xs text-white/60">{format(new Date(), 'MMM d')}</span>
+              </div>
+
+              <div className="relative h-[200px]">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-[180px] h-[180px] relative">
+                    {/* Triangle Background */}
+                    <svg className="absolute inset-0" viewBox="0 0 100 100">
+                      <polygon
+                        points="50,10 90,90 10,90"
+                        fill="none"
+                        stroke="rgba(255,255,255,0.1)"
+                        strokeWidth="1"
+                      />
+                      {/* Score Area */}
+                      <polygon
+                        points="50,10 90,90 10,90"
+                        fill="rgba(59,130,246,0.1)"
+                        stroke="rgba(59,130,246,0.3)"
+                        strokeWidth="1"
+                        style={{
+                          clipPath: `polygon(50% 10%, ${50 + 40 * Math.cos((tradingDayMetrics.winRate * 1.8 - 90) * Math.PI / 180)}% ${90 - 40 * Math.sin((tradingDayMetrics.winRate * 1.8 - 90) * Math.PI / 180)}%, ${50 + 40 * Math.cos((metrics.profitFactor * 45 - 90) * Math.PI / 180)}% ${90 - 40 * Math.sin((metrics.profitFactor * 45 - 90) * Math.PI / 180)}%, ${50 + 40 * Math.cos(((metrics.avgWin / Math.max(metrics.avgWin, Math.abs(metrics.avgLoss))) * 90 - 90) * Math.PI / 180)}% ${90 - 40 * Math.sin(((metrics.avgWin / Math.max(metrics.avgWin, Math.abs(metrics.avgLoss))) * 90 - 90) * Math.PI / 180)}%)`
+                        }}
+                      />
+                    </svg>
+
+                    {/* Center Score */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-white">
+                          {Math.round((tradingDayMetrics.winRate * 0.4 + metrics.profitFactor * 0.3 + (metrics.avgWin / Math.max(metrics.avgWin, Math.abs(metrics.avgLoss))) * 0.3) * 100)}
+                        </div>
+                        <div className="text-xs text-white/60">NBS Score</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-3 gap-4 mt-6">
+                <div className="text-center p-3 bg-[#1a1a1a] rounded-lg border border-[#1a1a1a]">
+                  <div className="text-sm font-medium text-blue-400">{tradingDayMetrics.winRate}%</div>
+                  <div className="text-xs text-white/60">Win Rate</div>
+                </div>
+                <div className="text-center p-3 bg-[#1a1a1a] rounded-lg border border-[#1a1a1a]">
+                  <div className="text-sm font-medium text-green-400">{metrics.profitFactor.toFixed(2)}</div>
+                  <div className="text-xs text-white/60">Profit Factor</div>
+                </div>
+                <div className="text-center p-3 bg-[#1a1a1a] rounded-lg border border-[#1a1a1a]">
+                  <div className="text-sm font-medium text-purple-400">
+                    {(metrics.avgWin / Math.max(metrics.avgWin, Math.abs(metrics.avgLoss))).toFixed(2)}
+                  </div>
+                  <div className="text-xs text-white/60">W/L Ratio</div>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Cumulative P&L Chart */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
+              className="p-4 rounded-xl bg-[#000000] border border-[#1a1a1a] hover:border-blue-500/30 transition-all duration-300"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-white">Cumulative P&L</h2>
+                <span className="text-xs text-white/60">30 Days</span>
+              </div>
+              <div className="h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsAreaChart data={cumulativePnLData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorPnL" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="rgba(255,255,255,0.5)"
+                      tick={{ fontSize: 12 }}
+                    />
+                    <YAxis 
+                      stroke="rgba(255,255,255,0.5)"
+                      tick={{ fontSize: 12 }}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="value" 
+                      stroke="#3B82F6" 
+                      fillOpacity={1} 
+                      fill="url(#colorPnL)" 
+                    />
+                  </RechartsAreaChart>
+                </ResponsiveContainer>
+              </div>
+            </motion.div>
+
+            {/* Daily P&L Bar Chart */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 }}
+              className="p-4 rounded-xl bg-[#000000] border border-[#1a1a1a] hover:border-blue-500/30 transition-all duration-300"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-white">Daily P&L</h2>
+                <span className="text-xs text-white/60">Last 7 Days</span>
+              </div>
+              <div className="h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsBarChart data={dailyPnLData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="rgba(255,255,255,0.5)"
+                      tick={{ fontSize: 12 }}
+                    />
+                    <YAxis 
+                      stroke="rgba(255,255,255,0.5)"
+                      tick={{ fontSize: 12 }}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Bar 
+                      dataKey="value" 
+                      fill="#10B981"
+                      fillOpacity={1}
+                    />
+                  </RechartsBarChart>
+                </ResponsiveContainer>
+              </div>
+            </motion.div>
             </div>
 
-            {/* Right Side Actions */}
-            <div className="flex items-center space-x-4">
-              {renderAccountBalance()}
+          {/* PnL Calendar Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8 }}
+            className="mb-6 max-w-6xl mx-auto"
+          >
+            <PnLCalendar 
+              trades={trades}
+              onDateSelect={(date) => {
+                setSelectedDate(date);
+                setShowTradeDetail(null);
+              }}
+              selectedDate={selectedDate}
+            />
+          </motion.div>
+
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Trade Log */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.6 }}
+              className="p-6 rounded-xl bg-[#000000] border border-[#1a1a1a] hover:border-purple-500/30 transition-all duration-300"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Recent Trades</h2>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-white/60">Last 5 trades</span>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="p-2 text-white/70 hover:text-white transition-colors"
+                  >
+                    <FileText className="w-5 h-5" />
+                  </motion.button>
+                </div>
+              </div>
+              <div className="space-y-4">
+                {trades.slice(0, 5).map((trade) => (
+                  <motion.div
+                    key={trade.id}
+                    whileHover={{ scale: 1.02 }}
+                    className="p-4 rounded-lg bg-[#1a1a1a] border border-[#1a1a1a] hover:border-blue-500/30 transition-all duration-300"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center space-x-3">
+                        <div className={`p-2 rounded-lg ${
+                          trade.side === 'long' 
+                            ? 'bg-green-500/20 text-green-400' 
+                            : 'bg-red-500/20 text-red-400'
+                        }`}>
+                          {trade.side === 'long' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-white">{trade.symbol}</h3>
+                          <p className="text-sm text-white/60">{format(new Date(trade.date), 'MMM d, yyyy h:mm a')}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className={`font-medium ${
+                          trade.pnl && trade.pnl >= 0 ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {trade.pnl && trade.pnl >= 0 ? '+' : ''}{trade.pnl?.toLocaleString()}
+                        </span>
+                        {trade.strategy && (
+                          <span className="text-xs text-white/50 mt-1">{trade.strategy}</span>
+                        )}
+                      </div>
+                    </div>
+                    {trade.notes && (
+                      <p className="text-sm text-white/70 mt-2 line-clamp-2">{trade.notes}</p>
+                    )}
+                    <div className="flex justify-end space-x-2 mt-2">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleViewTrade(trade)}
+                        className="p-2 text-white/70 hover:text-white transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={toggleTheme}
-                className={`p-2 rounded-lg ${
-                  isDark 
-                    ? 'bg-gray-800 text-gray-200 hover:bg-gray-700' 
-                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                }`}
-              >
-                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                        onClick={() => handleEditTrade(trade)}
+                        className="p-2 text-white/70 hover:text-white transition-colors"
+                      >
+                        <Edit className="w-4 h-4" />
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={handleLogout}
-                className={`p-2 rounded-lg ${
-                  isDark 
-                    ? 'bg-red-900/20 text-red-400 hover:bg-red-900/30' 
-                    : 'bg-red-100 text-red-600 hover:bg-red-200'
-                }`}
-              >
-                <LogOut className="w-5 h-5" />
+                        onClick={() => deleteTrade(trade.id)}
+                        className="p-2 text-red-400 hover:text-red-600 transition-colors"
+                      >
+                        <Trash className="w-4 h-4" />
               </motion.button>
             </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
           </div>
         </div>
-      </nav>
+      </main>
 
-      {/* Main Content */}
-      <main className="pt-16">
         {/* Add Trade Button */}
-        <div className="fixed bottom-8 right-8 z-50">
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
@@ -336,17 +724,12 @@ export function JournalDashboard() {
               setShowTradeForm(true);
               setIsAddingTrade(true);
             }}
-            className={`p-4 rounded-full shadow-lg ${
-              isDark 
-                ? 'bg-blue-500 text-white hover:bg-blue-600' 
-                : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
+        className="fixed bottom-8 right-8 p-4 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg hover:shadow-blue-500/25 transition-all duration-300"
           >
             <Plus className="w-6 h-6" />
           </motion.button>
-          </div>
 
-        {/* Trade Form Modal */}
+      {/* Modals */}
         <AnimatePresence>
           {showTradeForm && (
             <TradeForm
@@ -361,7 +744,6 @@ export function JournalDashboard() {
           )}
         </AnimatePresence>
 
-        {/* Trade Detail Modal */}
         <AnimatePresence>
           {showTradeDetail && (
             <TradeDetailModal
@@ -371,157 +753,6 @@ export function JournalDashboard() {
             />
           )}
         </AnimatePresence>
-
-        {/* Content based on view mode */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Performance Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className={`p-4 rounded-lg ${
-              isDark ? 'bg-gray-800' : 'bg-white'
-            } shadow-lg`}>
-              <div className="flex items-center space-x-2">
-                <TrendingUp className={`w-5 h-5 ${
-                  isDark ? 'text-green-400' : 'text-green-600'
-                }`} />
-                <h3 className={`text-lg font-semibold ${
-                  isDark ? 'text-white' : 'text-gray-900'
-                }`}>Win Rate</h3>
-              </div>
-              <p className={`text-2xl font-bold mt-2 ${
-                isDark ? 'text-green-400' : 'text-green-600'
-              }`}>{tradingDayMetrics.winRate}%</p>
-            </div>
-            <div className={`p-4 rounded-lg ${
-              isDark ? 'bg-gray-800' : 'bg-white'
-            } shadow-lg`}>
-              <div className="flex items-center space-x-2">
-                <Calendar className={`w-5 h-5 ${
-                  isDark ? 'text-blue-400' : 'text-blue-600'
-                }`} />
-                <h3 className={`text-lg font-semibold ${
-                  isDark ? 'text-white' : 'text-gray-900'
-                }`}>Trading Days</h3>
-              </div>
-              <p className={`text-2xl font-bold mt-2 ${
-                isDark ? 'text-blue-400' : 'text-blue-600'
-              }`}>{tradingDayMetrics.totalTradingDays}</p>
-            </div>
-            <div className={`p-4 rounded-lg ${
-              isDark ? 'bg-gray-800' : 'bg-white'
-            } shadow-lg`}>
-              <div className="flex items-center space-x-2">
-                <Shield className={`w-5 h-5 ${
-                  isDark ? 'text-purple-400' : 'text-purple-600'
-                }`} />
-                <h3 className={`text-lg font-semibold ${
-                  isDark ? 'text-white' : 'text-gray-900'
-                }`}>Account Balance</h3>
-              </div>
-              <div className="flex items-center mt-2">
-                <p className={`text-2xl font-bold ${
-                  isDark ? 'text-purple-400' : 'text-purple-600'
-                }`}>${accountBalance.toLocaleString()}</p>
-                <button
-                  onClick={() => setIsEditingBalance(true)}
-                  className={`ml-2 p-1 rounded ${
-                    isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Calendar and Trade Log Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* PnL Calendar */}
-            <div className={`lg:col-span-2 p-4 rounded-lg ${
-              isDark ? 'bg-gray-800' : 'bg-white'
-            } shadow-lg`}>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className={`text-xl font-bold ${
-                  isDark ? 'text-gray-200' : 'text-gray-800'
-                }`}>PnL Calendar</h2>
-              </div>
-              <div className="h-[500px]">
-                <PnLCalendar
-                  trades={trades}
-                  selectedDate={selectedDate}
-                  onDateSelect={setSelectedDate}
-                />
-              </div>
-          </div>
-
-            {/* Trade Log */}
-            <div className={`p-4 rounded-lg ${
-              isDark ? 'bg-gray-800' : 'bg-white'
-              } shadow-lg`}>
-              <h2 className={`text-xl font-bold mb-4 ${
-                isDark ? 'text-gray-200' : 'text-gray-800'
-              }`}>Trade Log</h2>
-              <div className="space-y-4">
-                {trades.map((trade) => (
-                  <div
-                    key={trade.id}
-                    className={`p-3 rounded-lg ${
-                      isDark ? 'bg-gray-700' : 'bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className={`font-medium ${
-                          isDark ? 'text-gray-200' : 'text-gray-800'
-                        }`}>{trade.symbol}</h3>
-                        <p className={`text-sm ${
-                          isDark ? 'text-gray-400' : 'text-gray-600'
-                        }`}>{new Date(trade.date).toLocaleDateString()}</p>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <span className={`font-medium ${
-                          trade.pnl && trade.pnl >= 0
-                            ? isDark ? 'text-green-400' : 'text-green-600'
-                            : isDark ? 'text-red-400' : 'text-red-600'
-                        }`}>
-                          {trade.pnl ? `$${trade.pnl.toLocaleString()}` : '-'}
-                        </span>
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => setShowTradeDetail(trade.id)}
-                          className={`p-1.5 rounded-lg transition-colors ${
-                            isDark 
-                              ? 'text-gray-400 hover:text-white hover:bg-gray-600' 
-                              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
-                          }`}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </motion.button>
-                      </div>
-                    </div>
-                    <div className="mt-2 flex items-center space-x-2">
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        trade.side === 'long'
-                          ? isDark ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-800'
-                          : isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {trade.side.toUpperCase()}
-                      </span>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        trade.status === 'open'
-                          ? isDark ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-800'
-                          : isDark ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {trade.status.toUpperCase()}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
     </div>
   );
 }

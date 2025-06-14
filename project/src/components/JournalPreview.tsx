@@ -4,99 +4,148 @@ import { BarChart2, Calendar, FileText, Settings, TrendingUp } from 'lucide-reac
 
 export function JournalPreview() {
   return (
-    <div className="relative w-full max-w-5xl mx-auto bg-black/40 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
-      {/* Mock Journal Interface */}
-      <div className="p-6">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="relative w-full max-w-5xl mx-auto bg-gradient-to-br from-gray-900/90 to-black/90 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden"
+    >
+      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-50" />
+      <div className="relative p-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-white">Trading Journal</h2>
+        <div className="flex justify-between items-center mb-8">
+          <motion.h2 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"
+          >
+            Trading Journal
+          </motion.h2>
           <div className="flex items-center space-x-4">
-            <button className="p-2 text-white/70 hover:text-white transition-colors">
+            <motion.button 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="p-2 text-white/70 hover:text-white transition-colors"
+            >
               <Settings className="w-5 h-5" />
-            </button>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            </motion.button>
+            <motion.button 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg hover:from-blue-600 hover:to-purple-600 transition-all duration-300 shadow-lg hover:shadow-blue-500/25"
+            >
               New Trade
-            </button>
+            </motion.button>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="grid grid-cols-12 gap-6">
+        <div className="grid grid-cols-12 gap-8">
           {/* Sidebar */}
-          <div className="col-span-3 space-y-4">
-            <div className="p-4 bg-white/5 rounded-lg">
-              <div className="flex items-center space-x-3 text-white/70 mb-4">
-                <Calendar className="w-5 h-5" />
-                <span>Today's Trades</span>
+          <div className="col-span-3 space-y-6">
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 }}
+              className="p-6 bg-white/5 rounded-xl border border-white/10 hover:border-blue-500/30 transition-colors duration-300"
+            >
+              <div className="flex items-center space-x-3 text-white/80 mb-4">
+                <Calendar className="w-5 h-5 text-blue-400" />
+                <span className="font-medium">Today's Trades</span>
               </div>
-              <div className="space-y-2">
-                <div className="p-2 bg-white/5 rounded text-sm">
-                  <div className="text-green-400">+$1,250</div>
-                  <div className="text-white/50">ES - Long</div>
+              <div className="space-y-3">
+                <div className="p-3 bg-white/5 rounded-lg border border-white/5 hover:border-green-500/30 transition-colors">
+                  <div className="text-green-400 font-medium">+$1,250</div>
+                  <div className="text-white/60 text-sm">ES - Long</div>
                 </div>
-                <div className="p-2 bg-white/5 rounded text-sm">
-                  <div className="text-red-400">-$450</div>
-                  <div className="text-white/50">NQ - Short</div>
+                <div className="p-3 bg-white/5 rounded-lg border border-white/5 hover:border-red-500/30 transition-colors">
+                  <div className="text-red-400 font-medium">-$450</div>
+                  <div className="text-white/60 text-sm">NQ - Short</div>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
-            <div className="p-4 bg-white/5 rounded-lg">
-              <div className="flex items-center space-x-3 text-white/70 mb-4">
-                <TrendingUp className="w-5 h-5" />
-                <span>Performance</span>
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+              className="p-6 bg-white/5 rounded-xl border border-white/10 hover:border-purple-500/30 transition-colors duration-300"
+            >
+              <div className="flex items-center space-x-3 text-white/80 mb-4">
+                <TrendingUp className="w-5 h-5 text-purple-400" />
+                <span className="font-medium">Performance</span>
               </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-white/50">Win Rate</span>
-                  <span className="text-white">68%</span>
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm p-2 bg-white/5 rounded-lg">
+                  <span className="text-white/60">Win Rate</span>
+                  <span className="text-white font-medium">68%</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-white/50">Avg. Win</span>
-                  <span className="text-green-400">$850</span>
+                <div className="flex justify-between text-sm p-2 bg-white/5 rounded-lg">
+                  <span className="text-white/60">Avg. Win</span>
+                  <span className="text-green-400 font-medium">$850</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-white/50">Avg. Loss</span>
-                  <span className="text-red-400">$320</span>
+                <div className="flex justify-between text-sm p-2 bg-white/5 rounded-lg">
+                  <span className="text-white/60">Avg. Loss</span>
+                  <span className="text-red-400 font-medium">$320</span>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
 
           {/* Main Journal Area */}
-          <div className="col-span-9">
-            <div className="bg-white/5 rounded-lg p-6">
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.5 }}
+            className="col-span-9"
+          >
+            <div className="bg-white/5 rounded-xl border border-white/10 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-semibold text-white">Recent Trades</h3>
-                <div className="flex space-x-2">
-                  <button className="p-2 text-white/70 hover:text-white transition-colors">
+                <div className="flex space-x-3">
+                  <motion.button 
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="p-2 text-white/70 hover:text-white transition-colors"
+                  >
                     <FileText className="w-5 h-5" />
-                  </button>
-                  <button className="p-2 text-white/70 hover:text-white transition-colors">
+                  </motion.button>
+                  <motion.button 
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="p-2 text-white/70 hover:text-white transition-colors"
+                  >
                     <BarChart2 className="w-5 h-5" />
-                  </button>
+                  </motion.button>
                 </div>
               </div>
 
               {/* Trade List */}
               <div className="space-y-4">
-                <div className="p-4 bg-white/5 rounded-lg">
+                <motion.div 
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 bg-white/5 rounded-lg border border-white/5 hover:border-blue-500/30 transition-all duration-300"
+                >
                   <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center space-x-3">
-                      <span className="text-green-400">+$1,250</span>
+                      <span className="text-green-400 font-medium">+$1,250</span>
                       <span className="text-white/70">ES</span>
                     </div>
                     <span className="text-white/50 text-sm">2 hours ago</span>
                   </div>
                   <p className="text-white/70 text-sm">
-                    Long entry at 4,250. Strong support level with increasing volume. Target reached at 4,275.
+                    Long entry at 4,250. Strong support level with increasing momentum. Target reached at 4,275
                   </p>
-                </div>
+                </motion.div>
 
-                <div className="p-4 bg-white/5 rounded-lg">
+                <motion.div 
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 bg-white/5 rounded-lg border border-white/5 hover:border-red-500/30 transition-all duration-300"
+                >
                   <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center space-x-3">
-                      <span className="text-red-400">-$450</span>
+                      <span className="text-red-400 font-medium">-$450</span>
                       <span className="text-white/70">NQ</span>
                     </div>
                     <span className="text-white/50 text-sm">4 hours ago</span>
@@ -104,12 +153,12 @@ export function JournalPreview() {
                   <p className="text-white/70 text-sm">
                     Short entry at 15,200. Break of key support level. Stopped out at 15,250.
                   </p>
-                </div>
+                </motion.div>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 } 

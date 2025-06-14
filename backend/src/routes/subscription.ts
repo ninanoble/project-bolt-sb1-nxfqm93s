@@ -1,6 +1,6 @@
 import express from 'express';
 import { User } from '../models/User';
-import { auth, requireVerified } from '../middleware/auth';
+import { auth } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -8,7 +8,6 @@ const router = express.Router();
 router.post(
   '/update',
   auth,
-  requireVerified,
   async (req: express.Request, res: express.Response) => {
     try {
       const { subscription } = req.body;

@@ -26,18 +26,4 @@ export const auth = async (req: AuthRequest, res: Response, next: NextFunction) 
   } catch (error) {
     res.status(401).json({ message: 'Please authenticate.' });
   }
-};
-
-export const requireVerified = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  if (!req.user.isVerified) {
-    return res.status(403).json({ message: 'Please verify your email first.' });
-  }
-  next();
-};
-
-export const requireSubscription = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  if (req.user.subscription === 'none') {
-    return res.status(403).json({ message: 'Please subscribe to access this feature.' });
-  }
-  next();
 }; 

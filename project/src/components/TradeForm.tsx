@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Info } from 'lucide-react';
+import { Plus, X, Info, TrendingUp, TrendingDown, Calendar, Tag, DollarSign, Target, Clock, FileText, CheckCircle2 } from 'lucide-react';
 import { Trade } from '../types/trade';
 import { calculatePnL, getContractInfo, formatPrice } from '../utils/contractSpecs';
 import { useTheme } from '../contexts/ThemeContext';
@@ -13,6 +13,7 @@ interface TradeFormProps {
 
 export function TradeForm({ onSubmit, onClose, trade }: TradeFormProps) {
   const { isDark } = useTheme();
+  const [showSuccess, setShowSuccess] = useState(false);
   const [formData, setFormData] = useState({
     date: trade?.date || new Date().toISOString().split('T')[0],
     symbol: trade?.symbol || '',
@@ -49,7 +50,7 @@ export function TradeForm({ onSubmit, onClose, trade }: TradeFormProps) {
       )
     : null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const exitPrice = formData.exitPrice ? parseFloat(formData.exitPrice) : undefined;
@@ -91,6 +92,12 @@ export function TradeForm({ onSubmit, onClose, trade }: TradeFormProps) {
     };
 
     onSubmit(trade);
+    setShowSuccess(true);
+    
+    // Close the form after a short delay
+    setTimeout(() => {
+      onClose();
+    }, 1500);
   };
 
   return (
@@ -98,22 +105,34 @@ export function TradeForm({ onSubmit, onClose, trade }: TradeFormProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm"
+      className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm"
     >
       <motion.div 
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.9, opacity: 0, y: 20 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className={`rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
-          isDark ? 'bg-gray-800' : 'bg-white'
-        }`}
+        className="rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-[#0a0a0a] border border-[#1a1a1a] shadow-2xl"
       >
-        <div className="flex items-center justify-between mb-6">
+        <AnimatePresence>
+          {showSuccess && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="fixed top-4 right-4 bg-green-500/20 border border-green-500/30 text-green-400 px-6 py-3 rounded-lg flex items-center space-x-2 shadow-lg"
+            >
+              <CheckCircle2 className="w-5 h-5" />
+              <span>Trade successfully added!</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="flex items-center justify-between mb-8">
           <motion.h2 
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            className="text-xl font-bold"
+            className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"
           >
             {trade ? 'Edit Trade' : 'Add New Trade'}
           </motion.h2>
@@ -121,93 +140,37 @@ export function TradeForm({ onSubmit, onClose, trade }: TradeFormProps) {
             onClick={onClose}
             whileHover={{ scale: 1.1, rotate: 90 }}
             whileTap={{ scale: 0.9 }}
-            className={`p-2 rounded-lg transition-colors ${
-              isDark 
-                ? 'text-gray-400 hover:text-white hover:bg-gray-700' 
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-            }`}
+            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#1a1a1a] transition-all duration-200"
           >
             <X className="w-5 h-5" />
           </motion.button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Contract Info Display */}
-          <AnimatePresence>
-            {contractInfo && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className={`p-4 rounded-lg border ${
-                  isDark 
-                    ? 'bg-blue-900/20 border-blue-800/30' 
-                    : 'bg-blue-50 border-blue-200'
-                }`}
-              >
-                <div className="flex items-center space-x-2 mb-2">
-                  <Info className="w-4 h-4 text-blue-400" />
-                  <span className="text-sm font-medium text-blue-400">Contract Specifications</span>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span className={isDark ? 'text-gray-400' : 'text-gray-600'}>Tick Size:</span>
-                    <span className="ml-2 font-medium">{contractInfo.tickSize}</span>
-                  </div>
-                  <div>
-                    <span className={isDark ? 'text-gray-400' : 'text-gray-600'}>Tick Value:</span>
-                    <span className="ml-2 font-medium">${contractInfo.tickValue}</span>
-                  </div>
-                  <div>
-                    <span className={isDark ? 'text-gray-400' : 'text-gray-600'}>Point Value:</span>
-                    <span className="ml-2 font-medium">${contractInfo.pointValue}</span>
-                  </div>
-                  {estimatedPnL !== null && (
-                    <div>
-                      <span className={isDark ? 'text-gray-400' : 'text-gray-600'}>Est. P&L:</span>
-                      <span className={`ml-2 font-medium ${
-                        estimatedPnL >= 0 ? 'text-green-400' : 'text-red-400'
-                      }`}>
-                        ${estimatedPnL.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Basic Trade Information */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <h3 className="text-lg font-semibold mb-4">Trade Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+          {/* Trade Details Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-xl bg-[#0f0f0f] border border-[#1a1a1a]">
+            <h3 className="col-span-2 text-lg font-semibold text-white mb-2 flex items-center">
+              <DollarSign className="w-5 h-5 mr-2 text-blue-400" />
+              Trade Details
+            </h3>
+            
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300 flex items-center">
+                <Calendar className="w-4 h-4 mr-2 text-blue-400" />
                   Date
                 </label>
                 <input
                   type="date"
                   value={formData.date}
                   onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                  className={`w-full px-3 py-2 border rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    isDark 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                   required
                 />
               </div>
 
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300 flex items-center">
+                <Tag className="w-4 h-4 mr-2 text-blue-400" />
                   Symbol
                 </label>
                 <input
@@ -215,39 +178,33 @@ export function TradeForm({ onSubmit, onClose, trade }: TradeFormProps) {
                   value={formData.symbol}
                   onChange={(e) => setFormData(prev => ({ ...prev, symbol: e.target.value }))}
                   placeholder="ES, NQ, CL, etc."
-                  className={`w-full px-3 py-2 border rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    isDark 
-                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                  }`}
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                   required
                 />
               </div>
 
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300 flex items-center">
+                {formData.side === 'long' ? (
+                  <TrendingUp className="w-4 h-4 mr-2 text-green-400" />
+                ) : (
+                  <TrendingDown className="w-4 h-4 mr-2 text-red-400" />
+                )}
                   Side
                 </label>
                 <select
                   value={formData.side}
                   onChange={(e) => setFormData(prev => ({ ...prev, side: e.target.value as 'long' | 'short' }))}
-                  className={`w-full px-3 py-2 border rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    isDark 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                 >
                   <option value="long">Long</option>
                   <option value="short">Short</option>
                 </select>
               </div>
 
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300 flex items-center">
+                <Target className="w-4 h-4 mr-2 text-blue-400" />
                   Contract
                 </label>
                 <input
@@ -256,19 +213,14 @@ export function TradeForm({ onSubmit, onClose, trade }: TradeFormProps) {
                   value={formData.quantity}
                   onChange={(e) => setFormData(prev => ({ ...prev, quantity: e.target.value }))}
                   placeholder="1"
-                  className={`w-full px-3 py-2 border rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    isDark 
-                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                  }`}
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                   required
                 />
               </div>
 
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300 flex items-center">
+                <DollarSign className="w-4 h-4 mr-2 text-blue-400" />
                   Entry Price
                 </label>
                 <input
@@ -277,46 +229,14 @@ export function TradeForm({ onSubmit, onClose, trade }: TradeFormProps) {
                   value={formData.entryPrice}
                   onChange={(e) => setFormData(prev => ({ ...prev, entryPrice: e.target.value }))}
                   placeholder="4500.00"
-                  className={`w-full px-3 py-2 border rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    isDark 
-                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                  }`}
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                   required
                 />
               </div>
 
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
-                  Status
-                </label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as 'open' | 'closed' }))}
-                  className={`w-full px-3 py-2 border rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    isDark 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                >
-                  <option value="open">Open</option>
-                  <option value="closed">Closed</option>
-                </select>
-              </div>
-
-              <AnimatePresence>
-                {formData.status === 'closed' && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  >
-                    <label className={`block text-sm font-medium mb-2 ${
-                      isDark ? 'text-gray-300' : 'text-gray-700'
-                    }`}>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300 flex items-center">
+                <DollarSign className="w-4 h-4 mr-2 text-blue-400" />
                       Exit Price
                     </label>
                     <input
@@ -324,21 +244,14 @@ export function TradeForm({ onSubmit, onClose, trade }: TradeFormProps) {
                       step="0.01"
                       value={formData.exitPrice}
                       onChange={(e) => setFormData(prev => ({ ...prev, exitPrice: e.target.value }))}
-                      placeholder="4520.00"
-                      className={`w-full px-3 py-2 border rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        isDark 
-                          ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                          : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                      }`}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                placeholder="4500.00"
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              />
+            </div>
 
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300 flex items-center">
+                <Target className="w-4 h-4 mr-2 text-red-400" />
                   Stop Loss
                 </label>
                 <input
@@ -346,19 +259,14 @@ export function TradeForm({ onSubmit, onClose, trade }: TradeFormProps) {
                   step="0.01"
                   value={formData.stopLoss}
                   onChange={(e) => setFormData(prev => ({ ...prev, stopLoss: e.target.value }))}
-                  placeholder="4480.00"
-                  className={`w-full px-3 py-2 border rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    isDark 
-                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                  }`}
+                placeholder="Stop Loss Price"
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                 />
               </div>
 
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300 flex items-center">
+                <Target className="w-4 h-4 mr-2 text-green-400" />
                   Take Profit
                 </label>
                 <input
@@ -366,19 +274,14 @@ export function TradeForm({ onSubmit, onClose, trade }: TradeFormProps) {
                   step="0.01"
                   value={formData.takeProfit}
                   onChange={(e) => setFormData(prev => ({ ...prev, takeProfit: e.target.value }))}
-                  placeholder="4540.00"
-                  className={`w-full px-3 py-2 border rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    isDark 
-                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                  }`}
+                placeholder="Take Profit Price"
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                 />
               </div>
 
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300 flex items-center">
+                <DollarSign className="w-4 h-4 mr-2 text-blue-400" />
                   Commission
                 </label>
                 <input
@@ -386,58 +289,74 @@ export function TradeForm({ onSubmit, onClose, trade }: TradeFormProps) {
                   step="0.01"
                   value={formData.commission}
                   onChange={(e) => setFormData(prev => ({ ...prev, commission: e.target.value }))}
-                  placeholder="2.50"
-                  className={`w-full px-3 py-2 border rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    isDark 
-                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                  }`}
+                placeholder="0.00"
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                 />
               </div>
 
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
-                  Strategy
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300 flex items-center">
+                <Clock className="w-4 h-4 mr-2 text-blue-400" />
+                Status
                 </label>
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as 'open' | 'closed' }))}
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              >
+                <option value="open">Open</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+
+            {/* PnL Calculation Display */}
+            {estimatedPnL !== null && (
+              <div className="col-span-2 mt-4 p-4 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <DollarSign className={`w-5 h-5 ${estimatedPnL >= 0 ? 'text-green-400' : 'text-red-400'}`} />
+                    <span className="text-sm font-medium text-gray-300">Estimated P&L:</span>
+                  </div>
+                  <span className={`text-lg font-bold ${estimatedPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {estimatedPnL >= 0 ? '+' : ''}{estimatedPnL.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Additional Details Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-xl bg-[#0f0f0f] border border-[#1a1a1a]">
+            <h3 className="col-span-2 text-lg font-semibold text-white mb-2 flex items-center">
+              <FileText className="w-5 h-5 mr-2 text-blue-400" />
+              Additional Details
+            </h3>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">Strategy</label>
                 <input
                   type="text"
                   value={formData.strategy}
                   onChange={(e) => setFormData(prev => ({ ...prev, strategy: e.target.value }))}
-                  placeholder="Breakout, Pullback, etc."
-                  className={`w-full px-3 py-2 border rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    isDark 
-                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                  }`}
+                placeholder="Enter strategy"
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                 />
               </div>
 
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>
-                  Timeframe
-                </label>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">Timeframe</label>
                 <input
                   type="text"
                   value={formData.timeframe}
                   onChange={(e) => setFormData(prev => ({ ...prev, timeframe: e.target.value }))}
-                  placeholder="5m, 15m, 1h, 1d"
-                  className={`w-full px-3 py-2 border rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    isDark 
-                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                  }`}
-                />
-              </div>
+                placeholder="e.g., 5min, 15min, 1H"
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              />
             </div>
 
-            <div className="mt-6">
-              <label className={`block text-sm font-medium mb-2 ${
-                isDark ? 'text-gray-300' : 'text-gray-700'
-              }`}>
+            <div className="space-y-2 col-span-2">
+              <label className="block text-sm font-medium text-gray-300 flex items-center">
+                <Tag className="w-4 h-4 mr-2 text-blue-400" />
                 Tags (comma separated)
               </label>
               <input
@@ -445,93 +364,114 @@ export function TradeForm({ onSubmit, onClose, trade }: TradeFormProps) {
                 value={formData.tags}
                 onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
                 placeholder="momentum, breakout, reversal"
-                className={`w-full px-3 py-2 border rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  isDark 
-                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                }`}
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
               />
             </div>
-          </motion.div>
 
-          {/* Journal Sections */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <h3 className="text-lg font-semibold mb-4">Trading Journal</h3>
-            <div className="space-y-6">
-              {[
-                { key: 'preTradingRoutine', label: 'Pre-Trading Routine', placeholder: 'Market analysis, setup identification, risk assessment...' },
-                { key: 'newsAndNotes', label: 'News & Notes', placeholder: 'Market news, economic events, sector analysis...' },
-                { key: 'dailyRecap', label: 'Daily Recap: Post Session Review', placeholder: 'Session summary, key observations, market behavior...' },
-                { key: 'tradesTakenToday', label: 'Trades Taken Today (supports links)', placeholder: 'List of trades, screenshots, chart links, analysis...' },
-                { key: 'markupsFromTradingDay', label: 'Markups From The Trading Day (one per line, supports links)', placeholder: 'Chart markups, screenshots, analysis links...' },
-                { key: 'endOfDayEvaluation', label: 'End of Day Evaluation', placeholder: 'Performance review, lessons learned, areas for improvement...' }
-              ].map((field, index) => (
-                <motion.div
-                  key={field.key}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 + index * 0.05 }}
-                >
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    {field.label}
-                  </label>
-                  <textarea
-                    value={formData[field.key as keyof typeof formData] as string}
-                    onChange={(e) => setFormData(prev => ({ ...prev, [field.key]: e.target.value }))}
-                    placeholder={field.placeholder}
-                    rows={4}
-                    className={`w-full px-3 py-2 border rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
-                      isDark 
-                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                    }`}
-                  />
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Basic Notes (fallback) */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <label className={`block text-sm font-medium mb-2 ${
-              isDark ? 'text-gray-300' : 'text-gray-700'
-            }`}>
-              Additional Notes
-            </label>
+            <div className="space-y-2 col-span-2">
+              <label className="block text-sm font-medium text-gray-300">Notes</label>
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
               placeholder="Trade notes, market conditions, lessons learned, etc."
               rows={3}
-              className={`w-full px-3 py-2 border rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
-                isDark 
-                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-              }`}
-            />
-          </motion.div>
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+              />
+            </div>
+          </div>
 
-          <motion.div 
-            className="flex space-x-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-          >
+          {/* Journaling Details Section */}
+          <div className="grid grid-cols-1 gap-6 p-6 rounded-xl bg-[#0f0f0f] border border-[#1a1a1a]">
+            <h3 className="text-lg font-semibold text-white mb-2 flex items-center">
+              <FileText className="w-5 h-5 mr-2 text-blue-400" />
+              Journaling Details
+            </h3>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">Pre-Trading Routine</label>
+              <textarea
+                value={formData.preTradingRoutine}
+                onChange={(e) => setFormData(prev => ({ ...prev, preTradingRoutine: e.target.value }))}
+                placeholder="Describe your pre-trading routine and preparation..."
+                rows={2}
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">News and Market Notes</label>
+              <textarea
+                value={formData.newsAndNotes}
+                onChange={(e) => setFormData(prev => ({ ...prev, newsAndNotes: e.target.value }))}
+                placeholder="Enter relevant news and market conditions..."
+                rows={2}
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">Daily Recap</label>
+              <textarea
+                value={formData.dailyRecap}
+                onChange={(e) => setFormData(prev => ({ ...prev, dailyRecap: e.target.value }))}
+                placeholder="Summarize your trading day..."
+                rows={2}
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">Post-Session Review</label>
+              <textarea
+                value={formData.postSessionReview}
+                onChange={(e) => setFormData(prev => ({ ...prev, postSessionReview: e.target.value }))}
+                placeholder="Review your trading session..."
+                rows={2}
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">Trades Taken Today</label>
+              <textarea
+                value={formData.tradesTakenToday}
+                onChange={(e) => setFormData(prev => ({ ...prev, tradesTakenToday: e.target.value }))}
+                placeholder="List all trades taken today..."
+                rows={2}
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">Markups from Trading Day</label>
+              <textarea
+                value={formData.markupsFromTradingDay}
+                onChange={(e) => setFormData(prev => ({ ...prev, markupsFromTradingDay: e.target.value }))}
+                placeholder="Add key points and lessons from today's trading..."
+                rows={3}
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">End of Day Evaluation</label>
+              <textarea
+                value={formData.endOfDayEvaluation}
+                onChange={(e) => setFormData(prev => ({ ...prev, endOfDayEvaluation: e.target.value }))}
+                placeholder="Evaluate your overall performance and plan for tomorrow..."
+                rows={3}
+                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex space-x-4 pt-4">
             <motion.button
               type="submit"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
+              className="flex-1 bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-blue-500/25"
             >
               <Plus className="w-5 h-5" />
               <span>{trade ? 'Update Trade' : 'Add Trade'}</span>
@@ -541,15 +481,11 @@ export function TradeForm({ onSubmit, onClose, trade }: TradeFormProps) {
               onClick={onClose}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                isDark 
-                  ? 'bg-gray-600 hover:bg-gray-700 text-white' 
-                  : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
-              }`}
+              className="flex-1 px-6 py-3 rounded-lg font-medium transition-all duration-200 bg-[#1a1a1a] text-white hover:bg-[#2a2a2a] border border-[#2a2a2a]"
             >
               Cancel
             </motion.button>
-          </motion.div>
+          </div>
         </form>
       </motion.div>
     </motion.div>

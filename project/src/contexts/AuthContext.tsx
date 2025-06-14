@@ -1,109 +1,87 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authApi, subscriptionApi } from '../services/api';
 
 interface User {
   id: string;
   email: string;
   name: string;
-  subscription: 'none' | 'free' | 'premium';
+  isVerified: boolean;
   newsletterSubscribed: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
+  loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string, subscribeNewsletter: boolean) => Promise<void>;
   logout: () => void;
-  updateSubscription: (plan: 'free' | 'premium') => Promise<void>;
+  verifyEmail: (token: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for stored user data
     const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
-    
-    if (storedUser && token) {
-      try {
-        const userData = JSON.parse(storedUser);
-        setUser(userData);
-      } catch (error) {
-        console.error('Error parsing stored user data:', error);
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-      }
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
     }
+    setLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
-    try {
-      const response = await authApi.login(email, password);
-      const userData: User = {
-        id: response.user.id,
-        email: response.user.email,
-        name: response.user.name,
-        subscription: response.user.subscription,
-        newsletterSubscribed: response.user.newsletterSubscribed
-      };
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('token', response.token);
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const user: User = {
+      id: '1',
+      email,
+      name: 'Test User',
+      isVerified: true,
+      newsletterSubscribed: true
+    };
+    
+    setUser(user);
+    localStorage.setItem('user', JSON.stringify(user));
   };
 
   const signup = async (email: string, password: string, name: string, subscribeNewsletter: boolean) => {
-    try {
-      const response = await authApi.signup(email, password, name, subscribeNewsletter);
-      const userData: User = {
-        id: response.user.id,
-        email: response.user.email,
-        name: response.user.name,
-        subscription: response.user.subscription,
-        newsletterSubscribed: response.user.newsletterSubscribed
-      };
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('token', response.token);
-    } catch (error) {
-      console.error('Signup error:', error);
-      throw error;
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const user: User = {
+      id: '1',
+      email,
+      name,
+      isVerified: true,
+      newsletterSubscribed: subscribeNewsletter
+    };
+    
+    setUser(user);
+    localStorage.setItem('user', JSON.stringify(user));
+  };
+
+  const verifyEmail = async (token: string) => {
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    if (user) {
+      const updatedUser = { ...user, isVerified: true };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
     }
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
-    localStorage.removeItem('token');
-  };
-
-  const updateSubscription = async (plan: 'free' | 'premium') => {
-    try {
-      await subscriptionApi.updateSubscription(plan);
-      if (user) {
-        const updatedUser = { ...user, subscription: plan };
-        setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-      }
-    } catch (error) {
-      console.error('Update subscription error:', error);
-      throw error;
-    }
   };
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      login,
-      signup,
-      logout,
-      updateSubscription
-    }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, verifyEmail }}>
       {children}
     </AuthContext.Provider>
   );

@@ -35,7 +35,7 @@ const featureCard = {
 };
 
 export function LandingPage() {
-  const { login, signup, updateSubscription } = useAuth();
+  const { login, signup } = useAuth();
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -46,10 +46,7 @@ export function LandingPage() {
   const [showOverview, setShowOverview] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
-  const [verificationSent, setVerificationSent] = useState(false);
   const [subscribeNewsletter, setSubscribeNewsletter] = useState(true);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<'basic' | 'pro' | 'premium'>('basic');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,31 +58,10 @@ export function LandingPage() {
         navigate('/journal');
       } else {
         await signup(email, password, name, subscribeNewsletter);
-        // After successful signup, update subscription based on which plan was selected
-        if (window.location.hash === '#pricing') {
-          updateSubscription('free');
-        }
         navigate('/journal');
       }
     } catch (err) {
       setError('Authentication failed. Please try again.');
-    }
-  };
-
-  const handlePaymentSuccess = () => {
-    setShowPaymentModal(false);
-    updateSubscription(selectedPlan === 'premium' ? 'premium' : 'free');
-    navigate('/journal');
-  };
-
-  const handlePlanSelection = (plan: 'basic' | 'pro' | 'premium') => {
-    setSelectedPlan(plan);
-    if (plan === 'premium') {
-      // For premium, show contact form or different flow
-      setShowAuthModal(true);
-      setIsLogin(false);
-    } else {
-      setShowPaymentModal(true);
     }
   };
 
@@ -495,7 +471,10 @@ export function LandingPage() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => handlePlanSelection('basic')}
+                onClick={() => {
+                  setIsLogin(false);
+                  setShowAuthModal(true);
+                }}
                 className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Get Started - Basic
@@ -522,7 +501,10 @@ export function LandingPage() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => handlePlanSelection('pro')}
+                onClick={() => {
+                  setIsLogin(false);
+                  setShowAuthModal(true);
+                }}
                 className="px-8 py-3 bg-white text-blue-600 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 Get Started - Pro
@@ -549,7 +531,10 @@ export function LandingPage() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => handlePlanSelection('premium')}
+                onClick={() => {
+                  setIsLogin(false);
+                  setShowAuthModal(true);
+                }}
                 className="px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg hover:from-blue-600 hover:to-purple-600 transition-colors drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]"
               >
                 Contact for Premium
@@ -774,14 +759,6 @@ export function LandingPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Payment Modal */}
-      <PaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        plan={selectedPlan}
-        onSuccess={handlePaymentSuccess}
-      />
 
       {/* Footer with About and Socials */}
       <footer className="py-8 bg-black/50 backdrop-blur-md border-t border-white/10">

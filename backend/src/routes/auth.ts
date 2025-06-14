@@ -1,9 +1,7 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
 import { User } from '../models/User';
-import { sendVerificationEmail } from '../utils/email';
 
 const router = express.Router();
 
@@ -33,12 +31,11 @@ router.post(
         return res.status(400).json({ message: 'User already exists' });
       }
 
-      // Create new user with isVerified set to true
+      // Create new user
       const user = new User({
         email,
         password,
         name,
-        isVerified: true, // Automatically verify the user
         newsletterSubscribed: subscribeNewsletter || false
       });
 
@@ -58,7 +55,6 @@ router.post(
           id: user._id,
           email: user.email,
           name: user.name,
-          isVerified: true,
           subscription: user.subscription,
           newsletterSubscribed: user.newsletterSubscribed
         }
@@ -111,7 +107,6 @@ router.post(
           id: user._id,
           email: user.email,
           name: user.name,
-          isVerified: user.isVerified,
           subscription: user.subscription,
           newsletterSubscribed: user.newsletterSubscribed
         }
@@ -121,24 +116,5 @@ router.post(
     }
   }
 );
-
-// Verify email route
-router.get('/verify/:token', async (req: express.Request, res: express.Response) => {
-  try {
-    const user = await User.findOne({ verificationToken: req.params.token });
-    
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid verification token' });
-    }
-
-    user.isVerified = true;
-    user.verificationToken = undefined;
-    await user.save();
-
-    res.json({ message: 'Email verified successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Error verifying email' });
-  }
-});
 
 export default router; 

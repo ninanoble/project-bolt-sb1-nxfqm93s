@@ -60,10 +60,6 @@ export const authApi = {
       throw error;
     }
   },
-
-  verifyEmail: async (token: string): Promise<void> => {
-    await api.get(`/auth/verify/${token}`);
-  },
 };
 
 export const subscriptionApi = {

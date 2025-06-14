@@ -6,7 +6,6 @@ export interface IUser extends Document {
   password: string;
   name: string;
   subscription: 'none' | 'free' | 'premium';
-  isVerified: boolean;
   newsletterSubscribed: boolean;
   verificationToken?: string;
   resetPasswordToken?: string;
@@ -36,10 +35,6 @@ const userSchema = new Schema<IUser>({
     type: String,
     enum: ['none', 'free', 'premium'],
     default: 'none'
-  },
-  isVerified: {
-    type: Boolean,
-    default: false
   },
   newsletterSubscribed: {
     type: Boolean,
