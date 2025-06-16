@@ -6,15 +6,23 @@ import { startOfWeek, startOfMonth, format, isWithinInterval, parseISO } from 'd
 export function useTrades() {
   const [trades, setTrades] = useLocalStorage<Trade[]>('nbs-trades', []);
   const [viewMode, setViewMode] = useState<ViewMode>('daily');
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const addTrade = (tradeData: Omit<Trade, 'id' | 'createdAt' | 'updatedAt'>) => {
+    // Ensure trade date and PnL are stored in UTC and as numbers
+    const tradeDate = new Date(tradeData.date);
+    tradeDate.setUTCHours(0, 0, 0, 0); // Set to UTC midnight
+    
     const newTrade: Trade = {
       ...tradeData,
+      date: tradeDate.toISOString(), // Store as UTC ISO string
+      pnl: tradeData.pnl ? Number(tradeData.pnl) : 0, // Ensure PnL is stored as a number
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    
+    // Update trades state
     setTrades(prev => [...prev, newTrade]);
   };
 
@@ -33,18 +41,34 @@ export function useTrades() {
   };
 
   const getFilteredTrades = useMemo(() => {
+    if (!selectedDate) {
+      return trades;
+    }
+    
     const now = selectedDate;
+    
+    // Convert to UTC midnight for consistent date comparison
+    const dayStart = new Date(now);
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const dayEnd = new Date(now);
+    dayEnd.setUTCHours(23, 59, 59, 999);
     
     switch (viewMode) {
       case 'daily':
-        const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        // Convert to UTC midnight for consistent date comparison
+        const dayStart = new Date(now);
+        dayStart.setUTCHours(0, 0, 0, 0);
+        const dayEnd = new Date(now);
+        dayEnd.setUTCHours(23, 59, 59, 999);
         return trades.filter(trade => {
-          const tradeDate = parseISO(trade.date);
-          return isWithinInterval(tradeDate, { start: dayStart, end: dayEnd });
+          const tradeDate = new Date(trade.date);
+          tradeDate.setUTCHours(0, 0, 0, 0);
+          return tradeDate >= dayStart && tradeDate <= dayEnd;
         });
       
       case 'weekly':
+        if (!selectedDate) return trades;
+        
         const weekStart = startOfWeek(now, { weekStartsOn: 1 });
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekEnd.getDate() + 7);
@@ -54,6 +78,8 @@ export function useTrades() {
         });
       
       case 'monthly':
+        if (!selectedDate) return trades;
+        
         const monthStart = startOfMonth(now);
         const monthEnd = new Date(monthStart);
         monthEnd.setMonth(monthEnd.getMonth() + 1);
@@ -70,6 +96,27 @@ export function useTrades() {
   const calculateSummary = (tradesToAnalyze: Trade[]): TradeSummary => {
     const closedTrades = tradesToAnalyze.filter(trade => trade.status === 'closed' && trade.pnl !== undefined);
     
+    // Handle null date case at the start
+    if (!selectedDate) {
+      return {
+        period: 'No date selected',
+        totalTrades: 0,
+        winningTrades: 0,
+        losingTrades: 0,
+        winRate: 0,
+        totalPnL: 0,
+        grossProfit: 0,
+        grossLoss: 0,
+        averageWin: 0,
+        averageLoss: 0,
+        profitFactor: 0,
+        largestWin: 0,
+        largestLoss: 0,
+        totalCommission: 0,
+        netPnL: 0,
+      };
+    }
+
     if (closedTrades.length === 0) {
       return {
         period: format(selectedDate, viewMode === 'daily' ? 'PPP' : viewMode === 'weekly' ? "'Week of' PPP" : 'MMMM yyyy'),

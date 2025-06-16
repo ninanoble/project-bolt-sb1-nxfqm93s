@@ -47,20 +47,13 @@ export function Layout({ children }: LayoutProps) {
       >
         <div className="flex items-center justify-between">
           <motion.div 
-            className="flex items-center space-x-3"
+            className="flex items-center"
             whileHover={{ scale: 1.02 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
           >
-            <motion.div 
-              className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center"
-              whileHover={{ rotate: 360 }}
-              transition={{ duration: 0.5 }}
-            >
-              <LayoutDashboard className="w-5 h-5 text-white" />
-            </motion.div>
-            <div className="text-lg font-semibold">
+            <div className="text-2xl font-bold">
               <span className="text-blue-400">NBS</span>
-              <span className="bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent"> Journal</span>
+              <span className="text-white"> Journal</span>
             </div>
           </motion.div>
           

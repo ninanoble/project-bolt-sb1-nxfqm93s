@@ -8,9 +8,9 @@ export function JournalPreview() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="relative w-full max-w-5xl mx-auto bg-gradient-to-br from-gray-900/90 to-black/90 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden"
+      className="relative w-full max-w-5xl mx-auto bg-black rounded-2xl border border-white/10 shadow-2xl overflow-hidden"
     >
-      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-50" />
+      <div className="absolute inset-0 bg-black" />
       <div className="relative p-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
@@ -18,9 +18,10 @@ export function JournalPreview() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"
+            className="flex items-center space-x-2"
           >
-            Trading Journal
+            <span className="text-3xl font-bold text-blue-500">NBS</span>
+            <span className="text-3xl font-bold text-white">Journal</span>
           </motion.h2>
           <div className="flex items-center space-x-4">
             <motion.button 
@@ -48,18 +49,18 @@ export function JournalPreview() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3 }}
-              className="p-6 bg-white/5 rounded-xl border border-white/10 hover:border-blue-500/30 transition-colors duration-300"
+              className="p-6 bg-black rounded-xl border border-white/10 hover:border-blue-500/30 transition-colors duration-300"
             >
               <div className="flex items-center space-x-3 text-white/80 mb-4">
                 <Calendar className="w-5 h-5 text-blue-400" />
                 <span className="font-medium">Today's Trades</span>
               </div>
               <div className="space-y-3">
-                <div className="p-3 bg-white/5 rounded-lg border border-white/5 hover:border-green-500/30 transition-colors">
+                <div className="bg-black rounded-lg border border-white/5 hover:border-green-500/30 transition-colors">
                   <div className="text-green-400 font-medium">+$1,250</div>
                   <div className="text-white/60 text-sm">ES - Long</div>
                 </div>
-                <div className="p-3 bg-white/5 rounded-lg border border-white/5 hover:border-red-500/30 transition-colors">
+                <div className="bg-black rounded-lg border border-white/5 hover:border-red-500/30 transition-colors">
                   <div className="text-red-400 font-medium">-$450</div>
                   <div className="text-white/60 text-sm">NQ - Short</div>
                 </div>
@@ -70,22 +71,22 @@ export function JournalPreview() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 }}
-              className="p-6 bg-white/5 rounded-xl border border-white/10 hover:border-purple-500/30 transition-colors duration-300"
+              className="p-6 bg-black rounded-xl border border-white/10 hover:border-purple-500/30 transition-colors duration-300"
             >
               <div className="flex items-center space-x-3 text-white/80 mb-4">
                 <TrendingUp className="w-5 h-5 text-purple-400" />
                 <span className="font-medium">Performance</span>
               </div>
               <div className="space-y-3">
-                <div className="flex justify-between text-sm p-2 bg-white/5 rounded-lg">
+                <div className="flex justify-between text-sm p-2 bg-black rounded-lg">
                   <span className="text-white/60">Win Rate</span>
                   <span className="text-white font-medium">68%</span>
                 </div>
-                <div className="flex justify-between text-sm p-2 bg-white/5 rounded-lg">
+                <div className="flex justify-between text-sm p-2 bg-black rounded-lg">
                   <span className="text-white/60">Avg. Win</span>
                   <span className="text-green-400 font-medium">$850</span>
                 </div>
-                <div className="flex justify-between text-sm p-2 bg-white/5 rounded-lg">
+                <div className="flex justify-between text-sm p-2 bg-black rounded-lg">
                   <span className="text-white/60">Avg. Loss</span>
                   <span className="text-red-400 font-medium">$320</span>
                 </div>
@@ -100,7 +101,7 @@ export function JournalPreview() {
             transition={{ delay: 0.5 }}
             className="col-span-9"
           >
-            <div className="bg-white/5 rounded-xl border border-white/10 p-6">
+            <div className="bg-black rounded-xl border border-white/10 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-semibold text-white">Recent Trades</h3>
                 <div className="flex space-x-3">
@@ -125,7 +126,7 @@ export function JournalPreview() {
               <div className="space-y-4">
                 <motion.div 
                   whileHover={{ scale: 1.02 }}
-                  className="p-4 bg-white/5 rounded-lg border border-white/5 hover:border-blue-500/30 transition-all duration-300"
+                  className="p-4 bg-black rounded-lg border border-white/5 hover:border-blue-500/30 transition-all duration-300"
                 >
                   <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center space-x-3">
@@ -141,7 +142,7 @@ export function JournalPreview() {
 
                 <motion.div 
                   whileHover={{ scale: 1.02 }}
-                  className="p-4 bg-white/5 rounded-lg border border-white/5 hover:border-red-500/30 transition-all duration-300"
+                  className="p-4 bg-black rounded-lg border border-white/5 hover:border-red-500/30 transition-all duration-300"
                 >
                   <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center space-x-3">
@@ -161,4 +162,4 @@ export function JournalPreview() {
       </div>
     </motion.div>
   );
-} 
+}

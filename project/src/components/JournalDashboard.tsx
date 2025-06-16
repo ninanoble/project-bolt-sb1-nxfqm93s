@@ -39,8 +39,8 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { ViewMode, Trade } from '../types/trade';
-import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
-import { ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip, Line, Area, Bar, AreaChart as RechartsAreaChart, BarChart as RechartsBarChart } from 'recharts';
+import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, subDays } from 'date-fns';
+import { ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip, Line, Area, Bar, Cell, AreaChart as RechartsAreaChart, BarChart as RechartsBarChart } from 'recharts';
 
 interface ChartDataPoint {
   date: string;
@@ -91,6 +91,7 @@ export function JournalDashboard() {
     const winningTrades = trades.filter(trade => trade.pnl && trade.pnl > 0);
     const losingTrades = trades.filter(trade => trade.pnl && trade.pnl < 0);
     
+    // Calculate average win/loss
     const avgWin = winningTrades.length > 0 
       ? winningTrades.reduce((sum, trade) => sum + (trade.pnl || 0), 0) / winningTrades.length 
       : 0;
@@ -99,14 +100,40 @@ export function JournalDashboard() {
       ? losingTrades.reduce((sum, trade) => sum + (trade.pnl || 0), 0) / losingTrades.length 
       : 0;
 
+    // Calculate Risk-to-Reward Ratio
+    const riskRewardRatio = Math.abs(avgLoss) > 0 ? Math.abs(avgWin / Math.abs(avgLoss)) : 0;
+
+    // Calculate Profit Factor
     const profitFactor = Math.abs(avgLoss) > 0 ? Math.abs(avgWin / avgLoss) : 0;
+
+    // Calculate Maximum Drawdown
+    const sortedTrades = [...trades].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    let cumulativePnL = 0;
+    let peak = 0;
+    let maxDrawdown = 0;
+    
+    sortedTrades.forEach(trade => {
+      cumulativePnL += trade.pnl || 0;
+      peak = Math.max(peak, cumulativePnL);
+      const currentDrawdown = (cumulativePnL - peak) / peak;
+      maxDrawdown = Math.min(maxDrawdown, currentDrawdown);
+    });
+
+    // Calculate Trade Frequency
+    const totalDays = Math.max(1, (new Date().getTime() - new Date(sortedTrades[0]?.date || new Date()).getTime()) / (1000 * 60 * 60 * 24));
+    const tradeFrequency = trades.length / totalDays;
+
+    // Calculate Expectancy
     const expectancy = trades.length > 0 ? (winningTrades.length * avgWin + losingTrades.length * avgLoss) / trades.length : 0;
 
     return {
       totalPnL,
       avgWin,
       avgLoss,
+      riskRewardRatio,
       profitFactor,
+      maxDrawdown,
+      tradeFrequency,
       expectancy,
       totalTrades: trades.length,
       winningTrades: winningTrades.length,
@@ -116,24 +143,30 @@ export function JournalDashboard() {
 
   // Calculate equity curve data with account balance
   const equityData = useMemo(() => {
+    if (!trades.length) return [];
+
     const sortedTrades = [...trades].sort((a, b) => 
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
-    const data = [{
-      date: new Date(sortedTrades[0]?.date || new Date()),
-      equity: accountBalance,
-      pnl: 0
-    }];
-
+    const data: ChartDataPoint[] = [];
     let runningEquity = accountBalance;
+
+    // Add initial point
+    data.push({
+      date: format(new Date(sortedTrades[0].date), 'MMM d'),
+      value: 0,
+      cumulativeValue: 0
+    });
+
+    // Add points for each trade
     sortedTrades.forEach(trade => {
       if (trade.pnl !== undefined) {
         runningEquity += trade.pnl;
         data.push({
-          date: new Date(trade.date),
-          equity: runningEquity,
-          pnl: trade.pnl
+          date: format(new Date(trade.date), 'MMM d'),
+          value: trade.pnl,
+          cumulativeValue: runningEquity - accountBalance
         });
       }
     });
@@ -287,44 +320,77 @@ export function JournalDashboard() {
     return showTradeDetail ? trades.find(t => t.id === showTradeDetail) : undefined;
   }, [showTradeDetail, trades]);
 
-  // Generate sample data for the last 30 days
-  const generateChartData = (): ChartDataPoint[] => {
+  // Custom tick formatter for UTC dates
+  const formatDate = (value: string) => {
+    const date = new Date(value);
+    return format(date, 'MMM d');
+  };
+
+  // Calculate daily PnL data first
+  const chartData = useMemo(() => {
     const data: ChartDataPoint[] = [];
-    let cumulativeValue = 0;
+    const endDate = new Date();
+    const startDate = subDays(endDate, 30);
     
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
+    // Create an array of dates from startDate to endDate
+    const dateRange = Array.from({ length: 31 }, (_, i) => {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      return date;
+    });
+
+    // Create a map of trades by date
+    const tradesByDate = new Map<string, Trade[]>();
+    trades.forEach(trade => {
+      const tradeDate = new Date(trade.date);
+      const dateKey = format(tradeDate, 'yyyy-MM-dd');
+      if (!tradesByDate.has(dateKey)) {
+        tradesByDate.set(dateKey, []);
+      }
+      tradesByDate.get(dateKey)?.push(trade);
+    });
+
+    // Generate chart data
+    dateRange.forEach(date => {
+      const dateKey = format(date, 'yyyy-MM-dd');
+      const tradesForDay = tradesByDate.get(dateKey) || [];
+      const dailyPnL = tradesForDay.reduce((sum, trade) => sum + (trade.pnl || 0), 0);
+      const cumulativeValue = data.length > 0 ? data[data.length - 1].cumulativeValue + dailyPnL : dailyPnL;
       
-      // Generate random P&L between -1000 and 2000
-      const dailyPnL = Math.floor(Math.random() * 3000) - 1000;
-      cumulativeValue += dailyPnL;
-      
+      // Store both raw date string and formatted date
       data.push({
-        date: format(date, 'MMM d'),
+        date: dateKey, // Keep raw date string for sorting
         value: dailyPnL,
         cumulativeValue: cumulativeValue
       });
-    }
+    });
     
     return data;
-  };
+  }, [trades]);
 
-  const chartData = generateChartData();
-  const cumulativePnLData = chartData.map(item => ({
-    date: item.date,
-    value: item.cumulativeValue
-  }));
+  // Create daily PnL data with formatted dates
+  const dailyPnLData = useMemo(() => {
+    return chartData.slice(-7).map(item => ({
+      date: format(new Date(item.date), 'MMM d'),
+      value: item.value
+    }));
+  }, [chartData]);
+
+  // Create cumulative PnL data with formatted dates
+  const cumulativePnLData = useMemo(() => {
+    return chartData.map(item => ({
+      date: format(new Date(item.date), 'MMM d'),
+      value: item.cumulativeValue
+    }));
+  }, [chartData]);
   
-  const dailyPnLData = chartData.slice(-7); // Last 7 days
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white">
+    <div className="min-h-screen bg-black text-white">
       {/* Main Content */}
       <main className="pt-20 pb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Performance Metrics Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 bg-black mb-6">
             {/* Net P&L Card */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -409,7 +475,7 @@ export function JournalDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
-              className="p-4 rounded-xl bg-[#000000] border border-[#1a1a1a] hover:border-red-500/30 transition-all duration-300"
+              className="p-4 rounded-xl bg-black border border-[#1a1a1a] hover:border-red-500/30 transition-all duration-300"
             >
               <div className="flex items-center space-x-2 mb-2">
                 <div className="p-1.5 rounded-lg bg-red-500/20">
@@ -417,7 +483,7 @@ export function JournalDashboard() {
                 </div>
                 <h3 className="text-sm font-semibold text-white">Avg Win/Loss</h3>
               </div>
-              <div className="space-y-2">
+              <div className="flex-1 space-y-6">
                 <div>
                   <div className="flex justify-between text-xs mb-0.5">
                     <span className="text-white/60">Win</span>
@@ -449,13 +515,13 @@ export function JournalDashboard() {
           </div>
 
           {/* Analytics Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 bg-black">
             {/* NBS Score Widget - Tradezella Style */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 }}
-              className="p-4 rounded-xl bg-[#000000] border border-[#1a1a1a] hover:border-blue-500/30 transition-all duration-300"
+              className="p-4 rounded-xl bg-black border border-[#1a1a1a] hover:border-blue-500/30 transition-all duration-300"
             >
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white">NBS Score</h2>
@@ -480,16 +546,26 @@ export function JournalDashboard() {
                         stroke="rgba(59,130,246,0.3)"
                         strokeWidth="1"
                         style={{
-                          clipPath: `polygon(50% 10%, ${50 + 40 * Math.cos((tradingDayMetrics.winRate * 1.8 - 90) * Math.PI / 180)}% ${90 - 40 * Math.sin((tradingDayMetrics.winRate * 1.8 - 90) * Math.PI / 180)}%, ${50 + 40 * Math.cos((metrics.profitFactor * 45 - 90) * Math.PI / 180)}% ${90 - 40 * Math.sin((metrics.profitFactor * 45 - 90) * Math.PI / 180)}%, ${50 + 40 * Math.cos(((metrics.avgWin / Math.max(metrics.avgWin, Math.abs(metrics.avgLoss))) * 90 - 90) * Math.PI / 180)}% ${90 - 40 * Math.sin(((metrics.avgWin / Math.max(metrics.avgWin, Math.abs(metrics.avgLoss))) * 90 - 90) * Math.PI / 180)}%)`
+                          clipPath: `polygon(50% 10%, ${50 + 40 * Math.cos((tradingDayMetrics.winRate * 1.8 - 90) * Math.PI / 180)}% ${90 - 40 * Math.sin((tradingDayMetrics.winRate * 1.8 - 90) * Math.PI / 180)}%, ${50 + 40 * Math.cos((metrics.riskRewardRatio * 2 - 90) * Math.PI / 180)}% ${90 - 40 * Math.sin((metrics.riskRewardRatio * 2 - 90) * Math.PI / 180)}%, ${50 + 40 * Math.cos((metrics.profitFactor * 45 - 90) * Math.PI / 180)}% ${90 - 40 * Math.sin((metrics.profitFactor * 45 - 90) * Math.PI / 180)}%, ${50 + 40 * Math.cos((metrics.maxDrawdown * -100 - 90) * Math.PI / 180)}% ${90 - 40 * Math.sin((metrics.maxDrawdown * -100 - 90) * Math.PI / 180)}%, ${50 + 40 * Math.cos((metrics.tradeFrequency * 50 - 90) * Math.PI / 180)}% ${90 - 40 * Math.sin((metrics.tradeFrequency * 50 - 90) * Math.PI / 180)}%)`
                         }}
                       />
                     </svg>
 
                     {/* Center Score */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center">
                       <div className="text-center">
-                        <div className="text-3xl font-bold text-white">
-                          {Math.round((tradingDayMetrics.winRate * 0.4 + metrics.profitFactor * 0.3 + (metrics.avgWin / Math.max(metrics.avgWin, Math.abs(metrics.avgLoss))) * 0.3) * 100)}
+                        <div className="text-xl font-bold text-white">
+                          {Math.min(Math.max(
+                            Math.round(
+                              (tradingDayMetrics.winRate || 0) * 0.3 +
+                              (Math.min(metrics.riskRewardRatio, 5) / 5 * 100) * 0.2 +
+                              (Math.min(metrics.profitFactor, 5) / 5 * 100) * 0.2 +
+                              ((1 - Math.min(Math.abs(metrics.maxDrawdown), 1)) * 100) * 0.2 +
+                              (metrics.tradeFrequency * 100) * 0.1
+                            ),
+                            0
+                          ),
+                          100)}
                         </div>
                         <div className="text-xs text-white/60">NBS Score</div>
                       </div>
@@ -522,7 +598,7 @@ export function JournalDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.7 }}
-              className="p-4 rounded-xl bg-[#000000] border border-[#1a1a1a] hover:border-blue-500/30 transition-all duration-300"
+              className="p-4 rounded-xl bg-black border border-[#1a1a1a] hover:border-blue-500/30 transition-all duration-300"
             >
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white">Cumulative P&L</h2>
@@ -571,7 +647,7 @@ export function JournalDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8 }}
-              className="p-4 rounded-xl bg-[#000000] border border-[#1a1a1a] hover:border-blue-500/30 transition-all duration-300"
+              className="p-4 rounded-xl bg-black border border-[#1a1a1a] hover:border-blue-500/30 transition-all duration-300"
             >
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white">Daily P&L</h2>
@@ -598,10 +674,14 @@ export function JournalDashboard() {
                       }}
                     />
                     <Bar 
-                      dataKey="value" 
+                      dataKey="value"
                       fill="#10B981"
                       fillOpacity={1}
-                    />
+                    >
+                      {dailyPnLData.map((entry: ChartDataPoint, index: number) => (
+                        <Cell key={`cell-${index}`} fill={entry.value >= 0 ? '#10B981' : '#EF4444'} />
+                      ))}
+                    </Bar>
                   </RechartsBarChart>
                 </ResponsiveContainer>
               </div>
@@ -626,7 +706,7 @@ export function JournalDashboard() {
           </motion.div>
 
           {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-black">
             {/* Trade Log */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
@@ -668,7 +748,7 @@ export function JournalDashboard() {
                           <p className="text-sm text-white/60">{format(new Date(trade.date), 'MMM d, yyyy h:mm a')}</p>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end">
+                      <div className="flex flex-col lg:flex-row gap-6 p-6 bg-black">
                         <span className={`font-medium ${
                           trade.pnl && trade.pnl >= 0 ? 'text-green-400' : 'text-red-400'
                         }`}>
@@ -691,23 +771,23 @@ export function JournalDashboard() {
                       >
                         <Eye className="w-4 h-4" />
                       </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => handleEditTrade(trade)}
                         className="p-2 text-white/70 hover:text-white transition-colors"
                       >
                         <Edit className="w-4 h-4" />
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => deleteTrade(trade.id)}
                         className="p-2 text-red-400 hover:text-red-600 transition-colors"
                       >
                         <Trash className="w-4 h-4" />
-              </motion.button>
-            </div>
+                      </motion.button>
+                    </div>
                   </motion.div>
                 ))}
               </div>

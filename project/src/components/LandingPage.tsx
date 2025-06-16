@@ -184,8 +184,8 @@ export function LandingPage() {
       </section>
 
       {/* Journal Preview */}
-      <section className="py-12 relative">
-        <div className="container mx-auto px-6">
+      <section className="relative bg-black">
+        <div className="container mx-auto px-6 py-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
